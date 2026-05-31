@@ -1,13 +1,14 @@
 /*
- * Vencord, a Discord client mod
+ * Vencord, a modification for Discord's desktop app
  * Copyright (c) 2024 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import { definePluginSettings } from "@api/Settings";
-import definePlugin, { OptionType } from "@utils/types";
+import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { ChatBarButton } from "@api/ChatButtons";
 import { showToast, Toasts } from "@webpack/common";
+import { Devs } from "@utils/constants";
 import { applyLocalCorrections } from "./localCorrections";
 import { applyEnglishCorrections } from "./englishCorrections";
 
@@ -15,8 +16,6 @@ import { applyEnglishCorrections } from "./englishCorrections";
 const Native = VencordNative.pluginHelpers.fixMessage as PluginNative<typeof import("./native")>;
 
 let fixNext = false;
-
-// ─── SETTINGS ───
 
 const settings = definePluginSettings({
     provider: {
@@ -49,8 +48,6 @@ const settings = definePluginSettings({
     },
 });
 
-// ─── LANGUAGE TOOL PARSING ───
-
 interface LTMatch {
     message: string;
     offset: number;
@@ -80,16 +77,12 @@ function parseLTResponse(text: string, data: string): string | null {
     }
 }
 
-// ─── AI RESPONSE PARSING ───
-
 function parseAIResponse(data: string): string | null {
     try {
         const parsed = JSON.parse(data);
-        // OpenAI format
         if (parsed.choices?.[0]?.message?.content) {
             return parsed.choices[0].message.content.trim();
         }
-        // Anthropic format
         if (parsed.content?.[0]?.text) {
             return parsed.content[0].text.trim();
         }
@@ -98,8 +91,6 @@ function parseAIResponse(data: string): string | null {
         return null;
     }
 }
-
-// ─── FIX ENGINE ───
 
 async function fixText(text: string): Promise<{ text: string; usedApi: boolean }> {
     const provider = settings.store.provider;
@@ -110,7 +101,6 @@ async function fixText(text: string): Promise<{ text: string; usedApi: boolean }
     let apiResult: string | null = null;
 
     if (provider === "languagetool" || !apiKey) {
-        // LanguageTool free (or no key configured)
         try {
             const { status, data } = await Native.makeLTRequest(text, "pt-BR");
             if (status === 200) {
@@ -135,7 +125,7 @@ async function fixText(text: string): Promise<{ text: string; usedApi: boolean }
             console.warn("[fixMessage] Anthropic fetch failed:", e);
         }
     } else {
-        // OpenAI or Custom (both use OpenAI-compatible format)
+        // OpenAI or Custom (both use the same chat completions format)
         try {
             const ep = provider === "custom"
                 ? endpoint
@@ -163,9 +153,6 @@ async function fixText(text: string): Promise<{ text: string; usedApi: boolean }
     return { text: corrected, usedApi: apiResult !== null };
 }
 
-// ─── ICON ───
-
-// Wrench icon 🔧
 const FixIcon = () => (
     <svg viewBox="0 0 24 24" height={20} width={20}>
         <path
@@ -175,12 +162,10 @@ const FixIcon = () => (
     </svg>
 );
 
-// ─── PLUGIN ───
-
 export default definePlugin({
     name: "fixMessage",
-    description: "Corrige gramática e ortografia com LanguageTool, OpenAI, Anthropic ou API customizada + corretor local PT-BR/EN. Ativa com botão 🔧, depois envia a mensagem.",
-    authors: [{ name: "Arthurdevon", id: 1072644260140163212n }],
+    description: "Fix grammar and spelling with LanguageTool, OpenAI, Anthropic, or a custom API, plus local PT-BR/EN corrections. Click the wrench icon then send your message.",
+    authors: [Devs.Arthurdevon],
     tags: ["Chat", "Utility"],
 
     settings,
@@ -189,10 +174,10 @@ export default definePlugin({
         icon: FixIcon,
         render: () => (
             <ChatBarButton
-                tooltip="Corrigir mensagem 🔧"
+                tooltip="Fix message"
                 onClick={() => {
                     fixNext = true;
-                    showToast("🔧 Correção ativada! Envia a mensagem pra corrigir.", Toasts.Type.SUCCESS);
+                    showToast("Fix activated! Send your message to correct it.", Toasts.Type.SUCCESS);
                 }}
             >
                 <FixIcon />
@@ -211,16 +196,16 @@ export default definePlugin({
             try {
                 const { text: fixed, usedApi } = await fixText(text);
                 if (fixed === text) {
-                    showToast("🔧 Tudo certo! Nada pra corrigir.", Toasts.Type.SUCCESS);
+                    showToast("Nothing to fix!", Toasts.Type.SUCCESS);
                     return;
                 }
 
                 message.content = fixed;
                 const label = settings.store.provider === "languagetool" ? "LanguageTool" : settings.store.provider;
-                showToast(`🔧 Corrigido (${label})`, Toasts.Type.SUCCESS);
+                showToast(`Fixed with ${label}`, Toasts.Type.SUCCESS);
             } catch (e) {
                 console.error("[fixMessage]", e);
-                showToast("🔧 Erro ao corrigir: " + (e instanceof Error ? e.message : "erro desconhecido"), Toasts.Type.FAILURE);
+                showToast("Failed to fix: " + (e instanceof Error ? e.message : "unknown error"), Toasts.Type.FAILURE);
             }
         })();
     },
