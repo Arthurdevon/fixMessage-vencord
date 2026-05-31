@@ -1,21 +1,24 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2024 Vendicated and contributors
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { definePluginSettings } from "@api/Settings";
-import definePlugin, { OptionType, PluginNative } from "@utils/types";
 import { ChatBarButton } from "@api/ChatButtons";
-import { showToast, Toasts } from "@webpack/common";
+import { definePluginSettings } from "@api/Settings";
 import { Devs } from "@utils/constants";
-import { applyLocalCorrections } from "./localCorrections";
+import definePlugin, { OptionType, PluginNative } from "@utils/types";
+import { SelectedChannelStore, showToast, Toasts } from "@webpack/common";
+
 import { applyEnglishCorrections } from "./englishCorrections";
+import { applyLocalCorrections } from "./localCorrections";
 
 // Bridge to main process (CSP blocks fetch from renderer)
 const Native = VencordNative.pluginHelpers.fixMessage as PluginNative<typeof import("./native")>;
 
-let fixNext = false;
+// Track which channels are waiting for a correction — one per click, scoped
+// so switching channels doesn't accidentally fix a message in the wrong one
+const pendingFixes = new Set<string>();
 
 const settings = definePluginSettings({
     provider: {
@@ -63,6 +66,7 @@ function parseLTResponse(text: string, data: string): string | null {
     try {
         const parsed: LTResponse = JSON.parse(data);
         let result = text;
+        // Apply replacements from end to start so offsets don't shift
         const sorted = [...parsed.matches]
             .filter(m => m.replacements.length > 0)
             .sort((a, b) => b.offset - a.offset);
@@ -80,9 +84,11 @@ function parseLTResponse(text: string, data: string): string | null {
 function parseAIResponse(data: string): string | null {
     try {
         const parsed = JSON.parse(data);
+        // OpenAI / Custom format
         if (parsed.choices?.[0]?.message?.content) {
             return parsed.choices[0].message.content.trim();
         }
+        // Anthropic format
         if (parsed.content?.[0]?.text) {
             return parsed.content[0].text.trim();
         }
@@ -93,14 +99,28 @@ function parseAIResponse(data: string): string | null {
 }
 
 async function fixText(text: string): Promise<{ text: string; usedApi: boolean }> {
-    const provider = settings.store.provider;
+    const { provider } = settings.store;
     const apiKey = settings.store.apiKey?.trim();
     const model = settings.store.model?.trim();
     const endpoint = settings.store.endpoint?.trim();
 
     let apiResult: string | null = null;
 
-    if (provider === "languagetool" || !apiKey) {
+    if (provider === "languagetool") {
+        // LanguageTool is free and needs no key
+        try {
+            const { status, data } = await Native.makeLTRequest(text, "pt-BR");
+            if (status === 200) {
+                apiResult = parseLTResponse(text, data);
+            } else {
+                console.warn("[fixMessage] LanguageTool error:", status, data);
+            }
+        } catch (e) {
+            console.warn("[fixMessage] LT fetch failed:", e);
+        }
+    } else if (!apiKey) {
+        // User picked OpenAI/Anthropic/Custom but didn't configure the key
+        showToast("No API key configured — falling back to LanguageTool", Toasts.Type.WARNING);
         try {
             const { status, data } = await Native.makeLTRequest(text, "pt-BR");
             if (status === 200) {
@@ -176,8 +196,11 @@ export default definePlugin({
             <ChatBarButton
                 tooltip="Fix message"
                 onClick={() => {
-                    fixNext = true;
-                    showToast("Fix activated! Send your message to correct it.", Toasts.Type.SUCCESS);
+                    const channelId = SelectedChannelStore.getChannelId();
+                    if (channelId) {
+                        pendingFixes.add(channelId);
+                        showToast("Fix activated! Send your message to correct it.", Toasts.Type.SUCCESS);
+                    }
                 }}
             >
                 <FixIcon />
@@ -185,9 +208,9 @@ export default definePlugin({
         ),
     },
 
-    onBeforeMessageSend(_, message) {
-        if (!fixNext) return;
-        fixNext = false;
+    onBeforeMessageSend(channelId, message) {
+        if (!pendingFixes.has(channelId)) return;
+        pendingFixes.delete(channelId);
 
         const text = message.content?.trim();
         if (!text) return;

@@ -1,10 +1,7 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2024 Vendicated and contributors
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
- *
- * Local PT-BR corrections — the free LanguageTool API misses a lot of
- * common accent and punctuation stuff, so we catch it here.
  */
 
 // Words Brazilians frequently type without accents.
@@ -13,12 +10,12 @@
 const ACCENT_MAP: Record<string, string> = {
     "ola": "olá",
     "voce": "você",
-    "você̂": "você",            // mixed encoding, thanks discord
+    "você̂": "você", // mixed encoding, thanks discord
     "vc": "você",
     "nao": "não",
     "ja": "já",
     "ate": "até",
-    "so": "só",                 // "so" isn't a word in pt-br
+    "so": "só", // "so" isn't a word in pt-br
     "esta": "está",
     "estas": "estás",
     "tem": "têm",
@@ -28,7 +25,7 @@ const ACCENT_MAP: Record<string, string> = {
     "comecam": "começam",
     "poe": "põe",
     "poem": "põem",
-    "e": "é",                   // only replaces in verb context (see below)
+    "e": "é", // only replaces in verb context (see below)
     "ingles": "inglês",
     "portugues": "português",
     "frances": "francês",
@@ -54,7 +51,7 @@ const ACCENT_MAP: Record<string, string> = {
     "dps": "depois",
     "cmg": "comigo",
     "ctg": "contigo",
-    "pq": "porque",             // could be "porquê" but 90% of the time it's porque
+    "pq": "porque", // could be "porquê" but 90% of the time it's porque
     "q": "que",
     "eh": "é",
     "entao": "então",
@@ -267,14 +264,14 @@ function ensureSentenceEnding(text: string): string {
 // If LanguageTool capitalised the first word but left the accent off, fix it
 const FIRST_WORD_FIXES: Record<string, string> = {
     "Ola": "Olá",
-    "Olá́": "Olá",     // cursed encoding
+    "Olá́": "Olá", // cursed encoding
     "Ate": "Até",
     "Até́": "Até",
     "So": "Só",
     "Ja": "Já",
     "Nao": "Não",
     "Voce": "Você",
-    "Você̂": "Você",   // encoding strikes again
+    "Você̂": "Você", // encoding strikes again
     "Tambem": "Também",
 };
 

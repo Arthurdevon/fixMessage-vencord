@@ -1,10 +1,12 @@
 /*
- * Vencord, a modification for Discord's desktop app
- * Copyright (c) 2024 Vendicated and contributors
+ * Vencord, a Discord client mod
+ * Copyright (c) 2026 Vendicated and contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
 import { IpcMainInvokeEvent } from "electron";
+
+const SYSTEM_PROMPT = "You are a text formatter. Fix the grammar, spelling, and punctuation of the input text. Return ONLY the corrected text, no explanations, no quotes, no labels.";
 
 export async function makeLTRequest(_: IpcMainInvokeEvent, text: string, lang: string) {
     const url = "https://api.languagetool.org/v2/check";
@@ -47,10 +49,8 @@ export async function makeAIRequest(
                 body: JSON.stringify({
                     model: model || "gpt-4o-mini",
                     messages: [
-                        {
-                            role: "user",
-                            content: `Fix the grammar, spelling, and punctuation of the text below. Return ONLY the corrected text, no explanations, no quotes, no labels.\n\n${text}`,
-                        },
+                        { role: "system", content: SYSTEM_PROMPT },
+                        { role: "user", content: text },
                     ],
                 }),
             });
@@ -86,11 +86,9 @@ export async function makeAnthropicRequest(
                 body: JSON.stringify({
                     model: model || "claude-3-haiku-20240307",
                     max_tokens: 1024,
+                    system: SYSTEM_PROMPT,
                     messages: [
-                        {
-                            role: "user",
-                            content: `Fix the grammar, spelling, and punctuation of the text below. Return ONLY the corrected text, no explanations, no quotes, no labels.\n\n${text}`,
-                        },
+                        { role: "user", content: text },
                     ],
                 }),
             });
