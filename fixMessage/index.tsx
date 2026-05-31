@@ -63,12 +63,12 @@ async function fixText(text: string, lang: string = "pt-BR"): Promise<{ text: st
     };
 }
 
-// Star icon ✨
+// Wrench icon 🔧
 const FixIcon = () => (
     <svg viewBox="0 0 24 24" height={20} width={20}>
         <path
             fill="currentColor"
-            d="M12 2l1.5 6.5L20 9l-5 4.5L16 21l-4-3.5L8 21l1-7.5L4 9l6.5-.5z"
+            d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"
         />
     </svg>
 );
